@@ -13,7 +13,7 @@ const exerciseSchema = new mongoose.Schema({
 });
 const Exercise = mongoose.model('Exercise', exerciseSchema);
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  username: { type: String, required: true },
   exercises: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exercise' }]
 });
 const User = mongoose.model('User', userSchema);
@@ -29,10 +29,10 @@ app.get('/', (req, res) => {
 
 app.post('/api/users', (req, res) => {
   let u = new User({
-    name: req.body.username
+    username: req.body.username
   });
   u.save((err, data) => {
-    if (data) res.json({ 'username': u.name, '_id': u._id });
+    if (data) res.json({ 'username': u.username, '_id': u._id });
     else res.json(err);
   });
 });
@@ -46,7 +46,7 @@ app.get('/api/users', (req, res) => {
 });
 
 app.post('/api/users/:_id/exercises', (req, res) => {
-  let duration = req.body.duration,
+  let duration = +req.body.duration,
     description = req.body.description,
     _id = req.params._id,
     date = req.body.date ?
@@ -64,53 +64,54 @@ app.post('/api/users/:_id/exercises', (req, res) => {
       user.exercises.push(ex);
       user.save((err) => {
         if (err) throw err;
-        else res.json({_id, username:user.name,
-                       date, duration, description});
+        else res.json({
+          _id, 'username': user.username,
+          date, duration, description
+        });
       });
     });
   });
 });
 const validDate = (date, s) => {
   const beg = '1970-01-02', end = '3000-12-12';
-  if((new Date(date) !== "Invalid Date") &&
-     !isNaN(new Date(date)))
-  {
-    return new Date(date);  
+  if ((new Date(date) !== "Invalid Date") &&
+    !isNaN(new Date(date))) {
+    return new Date(date);
   } else {
     return (s == 'from' ? new Date(beg) : new Date(end));
   }
 }
 app.get('/api/users/:_id/logs', (req, res) => {
   let _id = req.params._id,
-      from = validDate(req.query.from, 'from'),
-      to = validDate(req.query.to, 'to'),
-      limit = +req.query.limit ?? Infinity;
+    from = validDate(req.query.from, 'from'),
+    to = validDate(req.query.to, 'to'),
+    limit = +req.query.limit ?? Infinity;
   User.findOne({ _id: _id }, (err, user) => {
     Exercise.find({
-               _id: { $in : user.exercises },
-               date: {$gte: from, $lte: to}
-            })
-        .select({_id: 0, __v: 0})
-        .limit(limit)
-        .then(exs => {
-          exs = exs.map(ex => {
-            let a = {};
-            a['date'] = new Date(ex['date']).toDateString();
-            a['description'] = ex.description;
-            a['duration'] = ex.duration;
-            return a;
-          });
-          let resobj = {};
-          resobj['_id'] = user._id;
-          resobj['username'] = user.name;
-          resobj['count'] = exs.length;
-          resobj['log'] = exs;
+      _id: { $in: user.exercises },
+      date: { $gte: from, $lte: to }
+    })
+      .select({ _id: 0, __v: 0 })
+      .limit(limit)
+      .then(exs => {
+        exs = exs.map(ex => {
+          let a = {};
+          a['date'] = new Date(ex['date']).toDateString();
+          a['description'] = ex.description;
+          a['duration'] = ex.duration;
+          return a;
+        });
+        let resobj = {};
+        resobj['_id'] = user._id;
+        resobj['username'] = user.username;
+        resobj['count'] = exs.length;
+        resobj['log'] = exs;
 
-          res.json(resobj);
-        })
-        .catch(err => {console.log(err)});
-    });
+        res.json(resobj);
+      })
+      .catch(err => { console.log(err) });
   });
+});
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
 })
